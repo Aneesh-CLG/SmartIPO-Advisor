@@ -1,0 +1,50 @@
+import pandas as pd
+
+# Load the Excel file
+input_file = r"C:\Users\Aneesh Mada\Downloads\IPO history (2019 - 2025).xlsx"
+xls = pd.ExcelFile(input_file)
+
+# Function to clean each sheet
+def clean_sheet(df, year):
+    df['Year'] = year
+
+    # Fix columns
+    df['Listed Date'] = pd.to_datetime(df.get('Listed Date'), errors='coerce')
+
+    # Clean numeric columns
+    for col in ['Issue Price', 'Listing Day Close', 'Current Price']:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+    # Clean percentage columns
+    def parse_pct(x):
+        try:
+            return float(str(x).replace('%', '').replace('+', '').replace(',', '')) / 100
+        except:
+            return None
+
+    for col in ['Listing Day Gain', 'Profit/Loss']:
+        if col in df.columns:
+            df[col] = df[col].apply(parse_pct)
+
+    # Add success flag
+    if 'Profit/Loss' in df.columns:
+        df['Is_Successful'] = df['Profit/Loss'].apply(lambda x: 1 if x is not None and x >= 0.10 else 0)
+
+    return df
+
+# Process all sheets and combine
+cleaned_data = []
+for sheet in xls.sheet_names:
+    df = xls.parse(sheet_name=sheet)
+    cleaned_df = clean_sheet(df, year=sheet)
+    cleaned_data.append(cleaned_df)
+
+# Concatenate all cleaned data
+final_df = pd.concat(cleaned_data, ignore_index=True)
+
+# Export to new Excel file
+output_file = "Cleaned_All_IPO_Data.xlsx"
+final_df.to_excel(output_file, index=False)
+
+print(f"✅ Cleaned data saved to: {output_file}")
